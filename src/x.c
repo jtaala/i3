@@ -671,9 +671,56 @@ void x_draw_decoration(Con *con) {
             title = con_parse_title_format(con);
         }
     } else {
-        title = con->title_format == NULL ? win->name : con_parse_title_format(con);
+        if (con->title_format == NULL) {
+            /* add the parent's layout (if has parent and layout) */
+            char *t;
+            char *l = NULL;
+            char *wname = win->name == NULL ? sstrdup("") : sstrdup(i3string_as_utf8(win->name));
+
+            Con *parent = con->parent;
+            layout_t lay = parent->layout;
+            if (parent != NULL) {
+                if (lay == L_DEFAULT)
+                    l = sstrdup("D");
+                else if (lay == L_SPLITV)
+                    l = sstrdup("V");
+                else if (lay == L_SPLITH)
+                    l = sstrdup("H");
+                else if (lay == L_TABBED)
+                    l = sstrdup("T");
+                else if (lay == L_STACKED)
+                    l = sstrdup("S");
+                else {
+                    ELOG("BUG: Code not updated to account for new layout type\n");
+                    assert(false);
+                }
+
+                /* if is pango then let's be a bit fancy */
+                if (font_is_pango()) {
+                    sasprintf(&l, "<span size='small' rise='1pt'>[%s]</span>", l);
+                } else {
+                    sasprintf(&l, "[%s]", l);
+                }
+
+                sasprintf(&t, "%s %s", l, wname);
+            } else {
+                sasprintf(&t, "%s", wname);
+            }
+
+            title = i3string_from_utf8(t);
+            free(t);
+            free(wname);
+            free(l);
+
+        } else {
+            title = con_parse_title_format(con);
+        }
     }
-    if (title == NULL) {
+
+    if (title != NULL) {
+        /* set markup on title if font is pango */
+        i3string_set_markup(title, font_is_pango());
+    } else {
         goto copy_pixmaps;
     }
 
