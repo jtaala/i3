@@ -662,10 +662,12 @@ void x_draw_decoration(Con *con) {
         if (con->title_format == NULL) {
             char *_title;
             char *tree = con_get_tree_representation(con);
-            sasprintf(&_title, "i3: %s", tree);
+            sasprintf(&_title, "%s", tree);
+
             free(tree);
 
             title = i3string_from_utf8(_title);
+            i3string_set_markup(title, font_is_pango());
             FREE(_title);
         } else {
             title = con_parse_title_format(con);
