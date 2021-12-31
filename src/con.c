@@ -2300,9 +2300,6 @@ void populate_class_instances(Con *con) {
             ci_entry *new = scalloc(1, sizeof(ci_entry));
             new->class_instance = con->window->class_instance;
             TAILQ_INSERT_TAIL(&(ci_header), new, entries);
-
-            /* trigger a redraw so split container title updates when windows move etc. */
-            con->window->name_x_changed = true;
             return;
         }
     }
