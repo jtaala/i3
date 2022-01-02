@@ -2244,13 +2244,13 @@ char *con_get_tree_representation(Con *con) {
     char *buf = sstrdup("");
     ci_entry *t, *count, *remove, *next_entry;
 
-    /* while have tailstrings, take the first one, remove it, add to buf
+    /* while have entries, take the first one, remove it, add to buf
      * and then remove all others with the same value (removes duplicates). */
     while (!TAILQ_EMPTY(&ci_header)) {
         t = TAILQ_FIRST(&ci_header);
         TAILQ_REMOVE(&(ci_header), t, entries);
 
-        /* count how many other class instances there are for t */
+        /* count how many other same class_instance values there are for t */
         int cnt = 1;
         TAILQ_FOREACH (count, &(ci_header), entries) {
             /* string pointer compare == 0 mean is equal */
@@ -2261,18 +2261,17 @@ char *con_get_tree_representation(Con *con) {
 
         if (cnt > 1) {
             if (font_is_pango()) {
-                sasprintf(&buf, "%s %s<span font_scale='superscript' rise='4pt'>%d</span>", buf, t->class_instance, cnt);
+                sasprintf(&buf, "%s %s<span size='small' rise='3pt'>%d</span>", buf, t->class_instance, cnt);
             } else {
-                sasprintf(&buf, "%s %s[x%d]", buf, t->class_instance, cnt);
+                sasprintf(&buf, "%s %s(x%d)", buf, t->class_instance, cnt);
             }
         } else {
             sasprintf(&buf, "%s %s", buf, t->class_instance);
         }
 
-        /* now remove all others with this ts value */
+        /* now remove all others with this class_instance value (e.g. remove duplicates) */
         for (remove = TAILQ_FIRST(&ci_header); remove != NULL; remove = next_entry) {
             next_entry = TAILQ_NEXT(remove, entries);
-            /* string pointer compare == 0 mean is equal */
             if (strcmp(remove->class_instance, t->class_instance) == 0) {
                 TAILQ_REMOVE(&(ci_header), remove, entries);
             }
@@ -2284,9 +2283,9 @@ char *con_get_tree_representation(Con *con) {
 
     char *complete_buf = sstrdup("");
     if (font_is_pango()) {
-        sasprintf(&complete_buf, "<span stretch='condensed' weight='heavy'>(%s )</span>", buf);
+        sasprintf(&complete_buf, "<span stretch='condensed' weight='heavy'>[%s ]</span>", buf);
     } else {
-        sasprintf(&complete_buf, "(%s )", buf);
+        sasprintf(&complete_buf, "[%s ]", buf);
     }
     FREE(buf);
 
@@ -2298,7 +2297,7 @@ void populate_class_instances(Con *con) {
     if (con_is_leaf(con)) {
         if (con->window && con->window->class_instance) {
             ci_entry *new = scalloc(1, sizeof(ci_entry));
-            new->class_instance = con->window->class_instance;
+            new->class_instance = g_strstrip(con->window->class_instance);
             TAILQ_INSERT_TAIL(&(ci_header), new, entries);
             return;
         }
