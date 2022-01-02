@@ -680,28 +680,28 @@ void x_draw_decoration(Con *con) {
             Con *parent = con->parent;
             layout_t lay = parent->layout;
             if (parent != NULL) {
-                if (lay == L_DEFAULT)
-                    l = sstrdup("D");
+                if (parent->type == CT_FLOATING_CON)
+                    l = sstrdup("⮻");
+                else if (lay == L_DEFAULT)
+                    l = sstrdup("□");
                 else if (lay == L_SPLITV)
-                    l = sstrdup("V");
+                    l = sstrdup("⬒");
                 else if (lay == L_SPLITH)
-                    l = sstrdup("H");
+                    l = sstrdup("◧");
                 else if (lay == L_TABBED)
-                    l = sstrdup("T");
+                    l = sstrdup("▣");
                 else if (lay == L_STACKED)
-                    l = sstrdup("S");
+                    l = sstrdup("▤");
                 else {
                     ELOG("BUG: Code not updated to account for new layout type\n");
                     assert(false);
                 }
 
-                /* if is pango then let's be a bit fancy */
+                /* if pango add a little rise */
                 if (font_is_pango()) {
-                    sasprintf(&l, "<span size='small' rise='1pt'>[%s]</span>", l);
-                } else {
-                    sasprintf(&l, "[%s]", l);
+                    sasprintf(&l, "<span rise='1pt'>%s</span>", l);
                 }
-
+                /* add layout symbol */
                 sasprintf(&t, "%s %s", l, wname);
             } else {
                 sasprintf(&t, "%s", wname);
