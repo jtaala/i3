@@ -17,7 +17,7 @@ It contains improvements (for me), including saner and cleaner split container t
 
 _Note: features are based off the lastest [i3 stable branch](https://github.com/i3/i3/tree/stable) so you can merge one of these feature branches into your fork if you are just interested in that feature._
 
-### [Concise split container titles](https://github.com/jtaala/i3-jt/compare/stable...jtaala:concise-con_get_tree_representation-rewrite)
+### [Concise split container titles](https://github.com/i3/i3/compare/stable...jtaala:concise-con_get_tree_representation-rewrite)
 
 Current split container titles, while technically a correct representation of child windows, are not concise or easy for users to mentally process child window information.
 
@@ -31,7 +31,7 @@ You can see the difference compared to the current i3 split container title form
 
 ![Default i3 split container titles](readme_files/current-con-tree-representation.png)
 
-### [Parent layout marker in window titles](https://github.com/jtaala/i3-jt/compare/stable...jtaala:parent-layout-marker-in-window-title)
+### [Parent layout marker in window titles](https://github.com/i3/i3/compare/stable...jtaala:parent-layout-marker-in-window-title)
 
 _Note this was designed as an alternative / enhancement for i3's window indicator (coloured line that indicates current parent layout)._
 
