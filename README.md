@@ -6,7 +6,6 @@
 [![Pull Request Stats](https://img.shields.io/github/issues-pr/jtaala/i3.svg)](https://github.com/jtaala/i3/pulls)
 
 [![Packages](https://repology.org/badge/latest-versions/i3.svg)](https://repology.org/metapackage/i3/versions)
-[![Packages](https://repology.org/badge/tiny-repos/i3.svg)](https://repology.org/metapackage/i3/versions)
 
 This is a fork of i3wm with several implementations that are more easily done in a fork than with configuration changes.
 
