@@ -12,7 +12,16 @@
 #include "all.h"
 #include "yajl_utils.h"
 
+/* data helpers for storing class_instances for con_get_tree_representation function */
+struct ci_entry {
+    char *class_instance;
+    TAILQ_ENTRY(ci_entry) entries;
+};
+typedef struct ci_entry ci_entry;
+static TAILQ_HEAD(ci_header, ci_entry) ci_header = TAILQ_HEAD_INITIALIZER(ci_header);
+
 static void con_on_remove_child(Con *con);
+static void populate_class_instances(Con *con);
 
 /*
  * force parent split containers to be redrawn
@@ -2260,65 +2269,77 @@ void con_set_urgency(Con *con, bool urgent) {
 
 /*
  * Create a string representing the subtree under con.
- *
  */
 char *con_get_tree_representation(Con *con) {
-    /* this code works as follows:
-     *  1) create a string with the layout type (D/V/H/T/S) and an opening bracket
-     *  2) append the tree representation of the children to the string
-     *  3) add closing bracket
-     *
-     * The recursion ends when we hit a leaf, in which case we return the
-     * class_instance of the contained window.
-     */
+    populate_class_instances(con);
 
-    /* end of recursion */
-    if (con_is_leaf(con)) {
-        if (!con->window)
-            return sstrdup("nowin");
+    char *buf = sstrdup("");
+    ci_entry *t, *count, *remove, *next_entry;
 
-        if (!con->window->class_instance)
-            return sstrdup("noinstance");
+    /* while have entries, take the first one, remove it, add to buf
+     * and then remove all others with the same value (removes duplicates). */
+    while (!TAILQ_EMPTY(&ci_header)) {
+        t = TAILQ_FIRST(&ci_header);
+        TAILQ_REMOVE(&(ci_header), t, entries);
 
-        return sstrdup(con->window->class_instance);
+        /* count how many other same class_instance values there are for t */
+        int cnt = 1;
+        TAILQ_FOREACH (count, &(ci_header), entries) {
+            /* string pointer compare == 0 mean is equal */
+            if (strcmp(count->class_instance, t->class_instance) == 0) {
+                cnt++;
+            }
+        }
+
+        if (cnt > 1) {
+            if (font_is_pango()) {
+                sasprintf(&buf, "%s %s<span size='small' rise='3pt'>%d</span>", buf, t->class_instance, cnt);
+            } else {
+                sasprintf(&buf, "%s %s(x%d)", buf, t->class_instance, cnt);
+            }
+        } else {
+            sasprintf(&buf, "%s %s", buf, t->class_instance);
+        }
+
+        /* now remove all others with this class_instance value (e.g. remove duplicates) */
+        for (remove = TAILQ_FIRST(&ci_header); remove != NULL; remove = next_entry) {
+            next_entry = TAILQ_NEXT(remove, entries);
+            if (strcmp(remove->class_instance, t->class_instance) == 0) {
+                TAILQ_REMOVE(&(ci_header), remove, entries);
+            }
+        }
+        FREE(t);
+        FREE(count);
+        FREE(remove);
     }
 
-    char *buf;
-    /* 1) add the Layout type to buf */
-    if (con->layout == L_DEFAULT)
-        buf = sstrdup("D[");
-    else if (con->layout == L_SPLITV)
-        buf = sstrdup("V[");
-    else if (con->layout == L_SPLITH)
-        buf = sstrdup("H[");
-    else if (con->layout == L_TABBED)
-        buf = sstrdup("T[");
-    else if (con->layout == L_STACKED)
-        buf = sstrdup("S[");
-    else {
-        ELOG("BUG: Code not updated to account for new layout type\n");
-        assert(false);
+    char *complete_buf = sstrdup("");
+    if (font_is_pango()) {
+        sasprintf(&complete_buf, "<span stretch='condensed' weight='heavy'>[%s ]</span>", buf);
+    } else {
+        sasprintf(&complete_buf, "[%s ]", buf);
     }
-
-    /* 2) append representation of children */
-    Con *child;
-    TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
-        char *child_txt = con_get_tree_representation(child);
-
-        char *tmp_buf;
-        sasprintf(&tmp_buf, "%s%s%s", buf,
-                  (TAILQ_FIRST(&(con->nodes_head)) == child ? "" : " "), child_txt);
-        free(buf);
-        buf = tmp_buf;
-        free(child_txt);
-    }
-
-    /* 3) close the brackets */
-    char *complete_buf;
-    sasprintf(&complete_buf, "%s]", buf);
-    free(buf);
+    FREE(buf);
 
     return complete_buf;
+}
+
+void populate_class_instances(Con *con) {
+    /* end of recursion */
+    if (con_is_leaf(con)) {
+        if (con->window && con->window->class_instance) {
+            ci_entry *new = scalloc(1, sizeof(ci_entry));
+            new->class_instance = g_strstrip(con->window->class_instance);
+            TAILQ_INSERT_TAIL(&(ci_header), new, entries);
+            return;
+        }
+    }
+
+    /* recursive calls */
+    Con *child;
+    TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
+        populate_class_instances(child);
+    }
 }
 
 /*
@@ -2339,7 +2360,7 @@ i3String *con_parse_title_format(Con *con) {
     char *instance;
     char *machine;
     if (win == NULL) {
-        title = pango_escape_markup(con_get_tree_representation(con));
+        title = pango_markup ? con_get_tree_representation(con) : pango_escape_markup(con_get_tree_representation(con));
         class = sstrdup("i3-frame");
         instance = sstrdup("i3-frame");
         machine = sstrdup("");
@@ -2366,6 +2387,7 @@ i3String *con_parse_title_format(Con *con) {
     free(title);
     free(class);
     free(instance);
+    free(machine);
 
     return formatted;
 }
