@@ -2298,7 +2298,7 @@ char *con_get_tree_representation(Con *con) {
 
         if (cnt > 1) {
             if (font_is_pango()) {
-                sasprintf(&buf, "%s %s<span size='small' rise='3pt'>%d</span>", buf, t->class_instance, cnt);
+                sasprintf(&buf, "%s %s<span size='small' rise='1500'>%d</span>", buf, t->class_instance, cnt);
             } else {
                 sasprintf(&buf, "%s %s(x%d)", buf, t->class_instance, cnt);
             }
