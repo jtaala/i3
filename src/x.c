@@ -705,7 +705,7 @@ void x_draw_decoration(Con *con) {
 
                 /* if pango add a little rise */
                 if (pango) {
-                    sasprintf(&l, "<span rise='1pt'>%s</span>", l);
+                    sasprintf(&l, "<span rise='1000'>%s</span>", l);
                 }
                 /* add layout symbol */
                 sasprintf(&t, "%s %s", l, wname);
