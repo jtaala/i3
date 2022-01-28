@@ -759,27 +759,43 @@ void x_draw_decoration(Con *con) {
             Con *parent = con->parent;
             layout_t lay = parent->layout;
             if (parent != NULL) {
-                if (parent->type == CT_FLOATING_CON)
+                if (parent->type == CT_FLOATING_CON) {
                     l = pango ? sstrdup("⮻") : sstrdup("[F]");
-                else if (lay == L_DEFAULT)
-                    l = pango ? sstrdup("□") : sstrdup("[D]");
-                else if (lay == L_SPLITV)
-                    l = pango ? sstrdup("⬒") : sstrdup("[V]");
-                else if (lay == L_SPLITH)
-                    l = pango ? sstrdup("◧") : sstrdup("[H]");
-                else if (lay == L_TABBED)
-                    l = pango ? sstrdup("▣") : sstrdup("[T]");
-                else if (lay == L_STACKED)
-                    l = pango ? sstrdup("▤") : sstrdup("[S]");
-                else {
-                    ELOG("BUG: Code not updated to account for new layout type\n");
-                    assert(false);
+                } else {
+                    /* parent markers to so if layout is normal (non-reversed) */
+                    if (parent->layout_fill_order == LF_DEFAULT) {
+                        if (lay == L_DEFAULT)
+                            l = pango ? sstrdup("◪") : sstrdup("[D]");
+                        else if (lay == L_SPLITV)
+                            l = pango ? sstrdup("⬓") : sstrdup("[V]");
+                        else if (lay == L_SPLITH)
+                            l = pango ? sstrdup("◨") : sstrdup("[H]");
+                        else if (lay == L_TABBED)
+                            l = pango ? sstrdup("🡆") : sstrdup("[T]");
+                        else if (lay == L_STACKED)
+                            l = pango ? sstrdup("🡇") : sstrdup("[S]");
+                        else {
+                            ELOG("BUG: Code not updated to account for new layout type\n");
+                            assert(false);
+                        }
+                    } else { /* reverse layout markers */
+                        if (lay == L_DEFAULT)
+                            l = pango ? sstrdup("◩") : sstrdup("[Dr]");
+                        else if (lay == L_SPLITV)
+                            l = pango ? sstrdup("⬒") : sstrdup("[Vr]");
+                        else if (lay == L_SPLITH)
+                            l = pango ? sstrdup("◧") : sstrdup("[Hr]");
+                        else if (lay == L_TABBED)
+                            l = pango ? sstrdup("🡄") : sstrdup("[Tr]");
+                        else if (lay == L_STACKED)
+                            l = pango ? sstrdup("🡅") : sstrdup("[Sr]");
+                        else {
+                            ELOG("BUG: Code not updated to account for new layout type\n");
+                            assert(false);
+                        }
+                    }
                 }
 
-                /* if pango add a little rise */
-                if (pango) {
-                    sasprintf(&l, "<span rise='1000'>%s</span>", l);
-                }
                 /* add layout symbol */
                 sasprintf(&t, "%s %s", l, wname);
             } else {
