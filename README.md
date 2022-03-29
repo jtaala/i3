@@ -19,7 +19,7 @@ _Note: features are based off the lastest [i3 next branch](https://github.com/i3
 
 ### [Reverse layouts](https://github.com/i3/i3/compare/next...jtaala:right-to-left-layouts)
 
-[Wilhelm Schuster](https://github.com/wlhlm) created a fantastic branch that implementd reverse layouts into i3.  I've contributed a small amount of code (mainly some small changes requested in the original [PR](https://github.com/i3/i3/pull/4246) and documentation) and have merged this work into my fork.
+[Wilhelm Schuster](https://github.com/wlhlm) created a fantastic branch that implemented reverse layouts into i3.  I've contributed a small amount of code (mainly some small changes requested in the original [PR](https://github.com/i3/i3/pull/4246) and documentation) and have merged this work into my fork.
 
 _I've also created a [new PR](https://github.com/i3/i3/pull/4794) which seeks to complete @whlm's great work and finally get it into i3._
 
@@ -138,7 +138,7 @@ _I've also created a [new PR](https://github.com/i3/i3/pull/4794) which seeks to
 >```
 </details>
 
-### [Concise split container titles](https://github.com/i3/i3/compare/stable...jtaala:concise-con_get_tree_representation-rewrite)
+### [Concise split container titles](https://github.com/i3/i3/compare/next...jtaala:concise-con_get_tree_representation-rewrite)
 
 Current split container titles, while technically a correct representation of child windows, are not concise or easy for users to mentally process child window information.
 
@@ -154,7 +154,7 @@ You can see the difference compared to the current i3 split container title form
 
 _Note these pictures are of an earlier implementation.  The current implementation may differ._
 
-### [Parent layout marker in window titles](https://github.com/i3/i3/compare/stable...jtaala:parent-layout-marker-in-window-title)
+### [Parent layout marker in window titles](https://github.com/i3/i3/compare/next...jtaala:parent-layout-marker-in-window-title)
 
 _Note this was designed as an alternative / enhancement for i3's window indicator (coloured line that indicates current parent layout)._
 
@@ -172,6 +172,12 @@ One use case where this may be preferable to i3's window indicator is that there
 | floating | ⮻ | ⮻ |
 
 _Note the reverse-layout markers needs the [right-to-left-layouts](https://github.com/i3/i3/compare/next...jtaala:right-to-left-layout-parent-layout-marker) branch._
+
+### [Send container to mark WITHOUT focusing](https://github.com/i3/i3/compare/next...jtaala:con_move_to_mark-focus_next)
+
+Part of my workflow involves sending windows to a [marked](https://i3wm.org/docs/userguide.html#vim_like_marks) container.  The default i3 behaviour is to maintain focus on the sent window after it has been moved to the marked container - this breaks my workflow.
+
+This feature changes the behaviour to send the window to the marked container WITHOUT maintaining focus.
 
 ## About i3
 i3 is a tiling window manager for X11.
