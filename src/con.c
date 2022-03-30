@@ -1219,7 +1219,7 @@ void con_disable_fullscreen(Con *con) {
     con_set_fullscreen_mode(con, CF_NONE);
 }
 
-static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
+static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
     Con *orig_target = target;
 
     /* Prevent moving if this would violate the fullscreen focus restrictions. */
@@ -1267,8 +1267,7 @@ static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fi
 
     /* 1: save the container which is going to be focused after the current
      * container is moved away */
-    Con *focus_next = NULL;
-    if (!ignore_focus && source_ws == current_ws && target_ws != source_ws) {
+    if (focus_next == NULL && !ignore_focus && source_ws == current_ws && target_ws != source_ws) {
         focus_next = con_descend_focused(source_ws);
         if (focus_next == con || con_has_parent(focus_next, con)) {
             focus_next = con_next_focused(con);
@@ -1409,6 +1408,7 @@ static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fi
  */
 bool con_move_to_mark(Con *con, const char *mark) {
     Con *target = con_by_mark(mark);
+    Con *focus_next = NULL;
     if (target == NULL) {
         DLOG("found no container with mark \"%s\"\n", mark);
         return false;
@@ -1440,6 +1440,7 @@ bool con_move_to_mark(Con *con, const char *mark) {
     if (con_is_split(target)) {
         DLOG("target is a split container, descending to the currently focused child.\n");
         target = TAILQ_FIRST(&(target->focus_head));
+        focus_next = con_next_focused(con);
     }
 
     if (con == target || con_has_parent(target, con)) {
@@ -1447,7 +1448,7 @@ bool con_move_to_mark(Con *con, const char *mark) {
         return false;
     }
 
-    return _con_move_to_con(con, target, false, true, false, false, true);
+    return _con_move_to_con(con, target, focus_next, false, true, false, true, true);
 }
 
 /*
@@ -1480,7 +1481,8 @@ void con_move_to_workspace(Con *con, Con *workspace, bool fix_coordinates, bool 
     }
 
     Con *target = con_descend_focused(workspace);
-    _con_move_to_con(con, target, true, fix_coordinates, dont_warp, ignore_focus, true);
+    Con *focus_next = NULL;
+    _con_move_to_con(con, target, focus_next, true, fix_coordinates, dont_warp, ignore_focus, true);
 }
 
 /*
