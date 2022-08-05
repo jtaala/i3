@@ -1402,18 +1402,8 @@ static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind
     return true;
 }
 
-/*
- * Moves the given container to the given mark.
- *
- */
-bool con_move_to_mark(Con *con, const char *mark) {
-    Con *target = con_by_mark(mark);
+bool con_move_to_target(Con *con, Con *target) {
     Con *focus_next = NULL;
-    if (target == NULL) {
-        DLOG("found no container with mark \"%s\"\n", mark);
-        return false;
-    }
-
     /* For target containers in the scratchpad, we just send the window to the scratchpad. */
     if (con_get_workspace(target) == workspace_get("__i3_scratch")) {
         DLOG("target container is in the scratchpad, moving container to scratchpad.\n");
@@ -1449,6 +1439,20 @@ bool con_move_to_mark(Con *con, const char *mark) {
     }
 
     return _con_move_to_con(con, target, focus_next, false, true, false, true, true);
+}
+
+/*
+ * Moves the given container to the given mark.
+ *
+ */
+bool con_move_to_mark(Con *con, const char *mark) {
+    Con *target = con_by_mark(mark);
+    if (target == NULL) {
+        DLOG("found no container with mark \"%s\"\n", mark);
+        return false;
+    }
+
+    return con_move_to_target(con, target);
 }
 
 /*
