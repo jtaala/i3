@@ -2303,9 +2303,9 @@ char *con_get_tree_representation(Con *con) {
         }
 
         if (cnt > 1) {
-            sasprintf(&buf, "%s | %s(x%d)", buf, t->class_instance, cnt);
+            sasprintf(&buf, "%s %s(x%d)", buf, t->class_instance, cnt);
         } else {
-            sasprintf(&buf, "%s | %s", buf, t->class_instance);
+            sasprintf(&buf, "%s %s", buf, t->class_instance);
         }
 
         /* now remove all others with this class_instance value (e.g. remove duplicates) */
@@ -2321,11 +2321,7 @@ char *con_get_tree_representation(Con *con) {
     }
 
     char *complete_buf = sstrdup("");
-    if (font_is_pango()) {
-        sasprintf(&complete_buf, "<span stretch='condensed' weight='heavy'>%s |</span>", buf);
-    } else {
-        sasprintf(&complete_buf, "%s", buf);
-    }
+    sasprintf(&complete_buf, "{%s }", buf);
     FREE(buf);
 
     return complete_buf;
