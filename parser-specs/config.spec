@@ -56,7 +56,7 @@ state INITIAL:
   exectype = 'exec_always', 'exec'         -> EXEC
   colorclass = 'client.background'
       -> COLOR_SINGLE
-  colorclass = 'client.focused_inactive', 'client.focused', 'client.unfocused', 'client.urgent', 'client.placeholder'
+  colorclass = 'client.focused_inactive', 'client.focused_tab_title', 'client.focused', 'client.unfocused', 'client.urgent', 'client.placeholder'
       -> COLOR_BORDER
 
 # We ignore comments and 'set' lines (variables).
@@ -109,10 +109,16 @@ state DEFAULT_ORIENTATION:
   orientation = 'horizontal', 'vertical', 'auto'
       -> call cfg_default_orientation($orientation)
 
-# workspace_layout <default|stacking|tabbed>
+# workspace_layout <default|stacking|tabbed> [reverse]
 state WORKSPACE_LAYOUT:
   layout = 'default', 'stacking', 'stacked', 'tabbed'
-      -> call cfg_workspace_layout($layout)
+      -> WORKSPACE_LAYOUT_FILL_ORDER
+
+state WORKSPACE_LAYOUT_FILL_ORDER:
+  end
+      -> call cfg_workspace_layout($layout, $fill_order)
+  fill_order = 'reverse'
+      -> call cfg_workspace_layout($layout, $fill_order)
 
 # <default_border|new_window> <normal|1pixel|none>
 # <default_floating_border|new_float> <normal|1pixel|none>
@@ -399,8 +405,6 @@ state BINDCOMMAND:
   exclude_titlebar = '--exclude-titlebar'
       ->
   command = string
-      -> call cfg_binding($bindtype, $modifiers, $key, $release, $border, $whole_window, $exclude_titlebar, $command)
-  end
       -> call cfg_binding($bindtype, $modifiers, $key, $release, $border, $whole_window, $exclude_titlebar, $command)
 
 ################################################################################

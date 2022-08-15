@@ -14,7 +14,7 @@
 # • http://onyxneon.com/books/modern_perl/modern_perl_a4.pdf
 #   (unless you are already familiar with Perl)
 #
-# Verify that the corrent focus stack order is preserved after various
+# Verify that the current focus stack order is preserved after various
 # operations.
 use i3test i3_config => <<EOT;
 # i3 config file (v4)
@@ -174,25 +174,6 @@ cmd '[con_mark=a] move to workspace ' . get_unused_workspace;
 
 is(@{get_ws_content($ws)}, 2, 'Sanity check: marked window moved');
 confirm_focus('Move unfocused window from split container');
-
-######################################################################
-# Moving containers to another workspace puts them on the top of the
-# focus stack but behind the focused container.
-######################################################################
-
-for my $new_workspace (0 .. 1) {
-    fresh_workspace;
-    $windows[2] = open_window;
-    $windows[1] = open_window;
-    fresh_workspace if $new_workspace;
-    $windows[3] = open_window;
-    $windows[0] = open_window;
-    cmd 'mark target';
-
-    cmd '[id=' . $windows[2]->id . '] move to mark target';
-    cmd '[id=' . $windows[1]->id . '] move to mark target';
-    confirm_focus('\'move to mark\' focus order' . ($new_workspace ? ' when moving containers from other workspace' : ''));
-}
 
 ######################################################################
 # Same but with workspace commands.

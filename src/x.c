@@ -375,6 +375,26 @@ static void x_draw_title_border(Con *con, struct deco_render_params *p) {
     /* Bottom */
     draw_util_rectangle(&(con->parent->frame_buffer), p->color->border,
                         dr->x, dr->y + dr->height - 1, dr->width, 1);
+
+    /* Draw split indicator on top of title bar for reverse vertical splits. In
+     * other cases, the indicator is drawn in x_draw_decoration().
+     *
+     * +###########+
+     * | Title     |
+     * +-----------+
+     * |           |
+     * | Window    |
+     * |           |
+     * +-----------+
+     */
+    if (TAILQ_NEXT(con, nodes) == NULL &&
+        TAILQ_PREV(con, nodes_head, nodes) == NULL &&
+        con->parent->type != CT_FLOATING_CON &&
+        con->parent->layout == L_SPLITV &&
+        con->parent->layout_fill_order == LF_REVERSE) {
+        draw_util_rectangle(&(con->parent->frame_buffer), p->color->indicator,
+                            dr->x + 1, dr->y, dr->width - 2, 1);
+    }
 }
 
 static void x_draw_decoration_after_title(Con *con, struct deco_render_params *p) {
@@ -490,14 +510,20 @@ void x_draw_decoration(Con *con) {
     struct deco_render_params *p = scalloc(1, sizeof(struct deco_render_params));
 
     /* find out which colors to use */
-    if (con->urgent)
+    if (con->urgent) {
         p->color = &config.client.urgent;
-    else if (con == focused || con_inside_focused(con))
+    } else if (con == focused || con_inside_focused(con)) {
         p->color = &config.client.focused;
-    else if (con == TAILQ_FIRST(&(parent->focus_head)))
-        p->color = &config.client.focused_inactive;
-    else
+    } else if (con == TAILQ_FIRST(&(parent->focus_head))) {
+        if (config.client.got_focused_tab_title && !leaf && con_descend_focused(con) == focused) {
+            /* Stacked/tabbed parent of focused container */
+            p->color = &config.client.focused_tab_title;
+        } else {
+            p->color = &config.client.focused_inactive;
+        }
+    } else {
         p->color = &config.client.unfocused;
+    }
 
     p->border_style = con_border_style(con);
 
@@ -509,6 +535,7 @@ void x_draw_decoration(Con *con) {
     p->background = config.client.background;
     p->con_is_leaf = con_is_leaf(con);
     p->parent_layout = con->parent->layout;
+    p->parent_layout_fill_order = con->parent->layout_fill_order;
 
     if (con->deco_render_params != NULL &&
         (con->window == NULL || !con->window->name_x_changed) &&
@@ -577,12 +604,56 @@ void x_draw_decoration(Con *con) {
         if (TAILQ_NEXT(con, nodes) == NULL &&
             TAILQ_PREV(con, nodes_head, nodes) == NULL &&
             con->parent->type != CT_FLOATING_CON) {
-            if (p->parent_layout == L_SPLITH) {
-                draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
-                                    r->width + (br.width + br.x), br.y, -(br.width + br.x), r->height + br.height);
-            } else if (p->parent_layout == L_SPLITV) {
-                draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
-                                    br.x, r->height + (br.height + br.y), r->width + br.width, -(br.height + br.y));
+            if (p->parent_layout_fill_order == LF_REVERSE) {
+                if (p->parent_layout == L_SPLITH) {
+                    /* +-----------+
+                     * | Title     |
+                     * +-----------+
+                     * #           |
+                     * # Window    |
+                     * #           |
+                     * +-----------+
+                     */
+                    draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
+                                        br.x, br.y, br.width, r->height + br.height);
+                } else if (p->parent_layout == L_SPLITV) {
+                    /* Draw indicator on top border in case title bars are
+                     * disabled, otherwise indicator has to be drawn on the
+                     * title bar itself (see x_draw_title_border()).
+                     *
+                     * +###########+
+                     * |           |
+                     * | Window    |
+                     * |           |
+                     * +-----------+
+                     */
+                    draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
+                                        br.x, br.y, r->width + br.width, br.height);
+                }
+            } else {
+                if (p->parent_layout == L_SPLITH) {
+                    /* +-----------+
+                     * | Title     |
+                     * +-----------+
+                     * |           #
+                     * | Window    #
+                     * |           #
+                     * +-----------+
+                     */
+                    draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
+                                        r->width + (br.width + br.x), br.y, -(br.width + br.x), r->height + br.height);
+                } else if (p->parent_layout == L_SPLITV) {
+                    /* +-----------+
+                     * | Title     |
+                     * +-----------+
+                     * |           |
+                     * | Window    |
+                     * |           |
+                     * +###########+
+                     */
+                    draw_util_rectangle(&(con->frame_buffer), p->color->indicator,
+                                        br.x, r->height + (br.height + br.y), r->width + br.width, -(br.height + br.y));
+                }
             }
         }
     }
@@ -673,9 +744,78 @@ void x_draw_decoration(Con *con) {
             title = con_parse_title_format(con);
         }
     } else {
-        title = con->title_format == NULL ? win->name : con_parse_title_format(con);
+        if (con->title_format == NULL) {
+            /* add the parent's layout (if has parent and layout) */
+            char *t;
+            char *l = NULL;
+            char *wname = win->name == NULL ? sstrdup("") : sstrdup(i3string_as_utf8(win->name));
+            bool pango = font_is_pango();
+
+            /* escape window name if pango */
+            if (pango) {
+                wname = pango_escape_markup(wname);
+            }
+
+            Con *parent = con->parent;
+            layout_t lay = parent->layout;
+            if (parent != NULL) {
+                if (parent->type == CT_FLOATING_CON) {
+                    l = pango ? sstrdup("⮻") : sstrdup("[F]");
+                } else {
+                    /* parent markers to so if layout is normal (non-reversed) */
+                    if (parent->layout_fill_order == LF_DEFAULT) {
+                        if (lay == L_DEFAULT)
+                            l = pango ? sstrdup("◪") : sstrdup("[D]");
+                        else if (lay == L_SPLITV)
+                            l = pango ? sstrdup("⬓") : sstrdup("[V]");
+                        else if (lay == L_SPLITH)
+                            l = pango ? sstrdup("◨") : sstrdup("[H]");
+                        else if (lay == L_TABBED)
+                            l = pango ? sstrdup("🡆") : sstrdup("[T]");
+                        else if (lay == L_STACKED)
+                            l = pango ? sstrdup("🡇") : sstrdup("[S]");
+                        else {
+                            ELOG("BUG: Code not updated to account for new layout type\n");
+                            assert(false);
+                        }
+                    } else { /* reverse layout markers */
+                        if (lay == L_DEFAULT)
+                            l = pango ? sstrdup("◩") : sstrdup("[Dr]");
+                        else if (lay == L_SPLITV)
+                            l = pango ? sstrdup("⬒") : sstrdup("[Vr]");
+                        else if (lay == L_SPLITH)
+                            l = pango ? sstrdup("◧") : sstrdup("[Hr]");
+                        else if (lay == L_TABBED)
+                            l = pango ? sstrdup("🡄") : sstrdup("[Tr]");
+                        else if (lay == L_STACKED)
+                            l = pango ? sstrdup("🡅") : sstrdup("[Sr]");
+                        else {
+                            ELOG("BUG: Code not updated to account for new layout type\n");
+                            assert(false);
+                        }
+                    }
+                }
+
+                /* add layout symbol */
+                sasprintf(&t, "%s %s", l, wname);
+            } else {
+                sasprintf(&t, "%s", wname);
+            }
+
+            title = i3string_from_utf8(t);
+            free(t);
+            free(wname);
+            free(l);
+
+        } else {
+            title = con_parse_title_format(con);
+        }
     }
-    if (title == NULL) {
+
+    if (title != NULL) {
+        /* set markup on title if font is pango */
+        i3string_set_markup(title, font_is_pango());
+    } else {
         goto copy_pixmaps;
     }
 
@@ -877,7 +1017,6 @@ void x_push_node(Con *con) {
     con_state *state;
     Rect rect = con->rect;
 
-    //DLOG("Pushing changes for node %p / %s\n", con, con->name);
     state = state_for_frame(con->frame.id);
 
     if (state->name != NULL) {
@@ -990,14 +1129,16 @@ void x_push_node(Con *con) {
                 win_depth = con->window->depth;
 
             /* Ensure we have valid dimensions for our surface. */
-            // TODO This is probably a bug in the condition above as we should never enter this path
-            //      for height == 0. Also, we should probably handle width == 0 the same way.
+            /* TODO: This is probably a bug in the condition above as we should
+             * never enter this path for height == 0. Also, we should probably
+             * handle width == 0 the same way. */
             int width = MAX((int32_t)rect.width, 1);
             int height = MAX((int32_t)rect.height, 1);
 
             xcb_create_pixmap(conn, win_depth, con->frame_buffer.id, con->frame.id, width, height);
             draw_util_surface_init(conn, &(con->frame_buffer), con->frame_buffer.id,
                                    get_visualtype_by_id(get_visualid_by_depth(win_depth)), width, height);
+            draw_util_clear_surface(&(con->frame_buffer), (color_t){.red = 0.0, .green = 0.0, .blue = 0.0});
 
             /* For the graphics context, we disable GraphicsExposure events.
              * Those will be sent when a CopyArea request cannot be fulfilled
@@ -1010,8 +1151,8 @@ void x_push_node(Con *con) {
             con->pixmap_recreated = true;
 
             /* Don’t render the decoration for windows inside a stack which are
-             * not visible right now */
-            // TODO Should this work the same way for L_TABBED?
+             * not visible right now
+             * TODO: Should this work the same way for L_TABBED? */
             if (!con->parent ||
                 con->parent->layout != L_STACKED ||
                 TAILQ_FIRST(&(con->parent->focus_head)) == con)
@@ -1122,7 +1263,6 @@ static void x_push_node_unmaps(Con *con) {
     Con *current;
     con_state *state;
 
-    //DLOG("Pushing changes (with unmaps) for node %p / %s\n", con, con->name);
     state = state_for_frame(con->frame.id);
 
     /* map/unmap if map state changed, also ensure that the child window
@@ -1198,7 +1338,6 @@ void x_push_changes(Con *con) {
     }
 
     DLOG("-- PUSHING WINDOW STACK --\n");
-    //DLOG("Disabling EnterNotify\n");
     /* We need to keep SubstructureRedirect around, otherwise clients can send
      * ConfigureWindow requests and get them applied directly instead of having
      * them become ConfigureRequests that i3 handles. */
@@ -1207,7 +1346,6 @@ void x_push_changes(Con *con) {
         if (state->mapped)
             xcb_change_window_attributes(conn, state->id, XCB_CW_EVENT_MASK, values);
     }
-    //DLOG("Done, EnterNotify disabled\n");
     bool order_changed = false;
     bool stacking_changed = false;
 
@@ -1237,14 +1375,12 @@ void x_push_changes(Con *con) {
         if (con_has_managed_window(state->con))
             memcpy(walk++, &(state->con->window->id), sizeof(xcb_window_t));
 
-        //DLOG("stack: 0x%08x\n", state->id);
         con_state *prev = CIRCLEQ_PREV(state, state);
         con_state *old_prev = CIRCLEQ_PREV(state, old_state);
         if (prev != old_prev)
             order_changed = true;
         if ((state->initial || order_changed) && prev != CIRCLEQ_END(&state_head)) {
             stacking_changed = true;
-            //DLOG("Stacking 0x%08x above 0x%08x\n", prev->id, state->id);
             uint32_t mask = 0;
             mask |= XCB_CONFIG_WINDOW_SIBLING;
             mask |= XCB_CONFIG_WINDOW_STACK_MODE;
@@ -1297,13 +1433,11 @@ void x_push_changes(Con *con) {
         warp_to = NULL;
     }
 
-    //DLOG("Re-enabling EnterNotify\n");
     values[0] = FRAME_EVENT_MASK;
     CIRCLEQ_FOREACH_REVERSE (state, &state_head, state) {
         if (state->mapped)
             xcb_change_window_attributes(conn, state->id, XCB_CW_EVENT_MASK, values);
     }
-    //DLOG("Done, EnterNotify re-enabled\n");
 
     x_deco_recurse(con);
 
@@ -1389,9 +1523,6 @@ void x_push_changes(Con *con) {
         CIRCLEQ_REMOVE(&old_state_head, state, old_state);
         CIRCLEQ_INSERT_TAIL(&old_state_head, state, old_state);
     }
-    //CIRCLEQ_FOREACH(state, &old_state_head, old_state) {
-    //    DLOG("old stack: 0x%08x\n", state->id);
-    //}
 
     xcb_flush(conn);
 }
@@ -1404,7 +1535,6 @@ void x_push_changes(Con *con) {
 void x_raise_con(Con *con) {
     con_state *state;
     state = state_for_frame(con->frame.id);
-    //DLOG("raising in new stack: %p / %s / %s / xid %08x\n", con, con->name, con->window ? con->window->name_json : "", state->id);
 
     CIRCLEQ_REMOVE(&state_head, state, state);
     CIRCLEQ_INSERT_HEAD(&state_head, state, state);

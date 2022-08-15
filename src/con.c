@@ -201,11 +201,16 @@ static void _con_attach(Con *con, Con *parent, Con *previous, bool ignore_focus)
             DLOG("done\n");
         }
 
-        /* Insert the container after the tiling container, if found.
+        /* Insert the container before/after the tiling container, if found.
          * When adding to a CT_OUTPUT, just append one after another. */
         if (current != NULL && parent->type != CT_OUTPUT) {
-            DLOG("Inserting con = %p after con %p\n", con, current);
-            TAILQ_INSERT_AFTER(nodes_head, current, con, nodes);
+            if (parent->layout_fill_order == LF_REVERSE) {
+                DLOG("Inserting con = %p before con %p\n", con, current);
+                TAILQ_INSERT_BEFORE(current, con, nodes);
+            } else {
+                DLOG("Inserting con = %p after con %p\n", con, current);
+                TAILQ_INSERT_AFTER(nodes_head, current, con, nodes);
+            }
         } else
             TAILQ_INSERT_TAIL(nodes_head, con, nodes);
     }
@@ -740,6 +745,41 @@ Con *con_by_mark(const char *mark) {
 }
 
 /*
+ * Start from a container and traverse the transient_for linked list. Returns
+ * true if target window is found in the list. Protects againsts potential
+ * cycles.
+ *
+ */
+bool con_find_transient_for_window(Con *start, xcb_window_t target) {
+    Con *transient_con = start;
+    int count = con_num_windows(croot);
+    while (transient_con != NULL &&
+           transient_con->window != NULL &&
+           transient_con->window->transient_for != XCB_NONE) {
+        DLOG("transient_con = 0x%08x, transient_con->window->transient_for = 0x%08x, target = 0x%08x\n",
+             transient_con->window->id, transient_con->window->transient_for, target);
+        if (transient_con->window->transient_for == target) {
+            return true;
+        }
+        Con *next_transient = con_by_window_id(transient_con->window->transient_for);
+        if (next_transient == NULL) {
+            break;
+        }
+        /* Some clients (e.g. x11-ssh-askpass) actually set WM_TRANSIENT_FOR to
+         * their own window id, so break instead of looping endlessly. */
+        if (transient_con == next_transient) {
+            break;
+        }
+        transient_con = next_transient;
+
+        if (count-- <= 0) { /* Avoid cycles, see #4404 */
+            break;
+        }
+    }
+    return false;
+}
+
+/*
  * Returns true if and only if the given containers holds the mark.
  *
  */
@@ -861,8 +901,6 @@ void con_unmark(Con *con, const char *name) {
 Con *con_for_window(Con *con, i3Window *window, Match **store_match) {
     Con *child;
     Match *match;
-    //DLOG("searching con for window %p starting at con %p\n", window, con);
-    //DLOG("class == %s\n", window->class_class);
 
     TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
         TAILQ_FOREACH (match, &(child->swallow_head), matches) {
@@ -1021,8 +1059,8 @@ void con_fix_percent(Con *con) {
     Con *child;
     int children = con_num_children(con);
 
-    // calculate how much we have distributed and how many containers
-    // with a percentage set we have
+    /* calculate how much we have distributed and how many containers with a
+     * percentage set we have */
     double total = 0.0;
     int children_with_percent = 0;
     TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
@@ -1032,8 +1070,8 @@ void con_fix_percent(Con *con) {
         }
     }
 
-    // if there were children without a percentage set, set to a value that
-    // will make those children proportional to all others
+    /* if there were children without a percentage set, set to a value that
+     * will make those children proportional to all others */
     if (children_with_percent != children) {
         TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
             if (child->percent <= 0.0) {
@@ -1046,8 +1084,8 @@ void con_fix_percent(Con *con) {
         }
     }
 
-    // if we got a zero, just distribute the space equally, otherwise
-    // distribute according to the proportions we got
+    /* if we got a zero, just distribute the space equally, otherwise
+     * distribute according to the proportions we got */
     if (total == 0.0) {
         TAILQ_FOREACH (child, &(con->nodes_head), nodes) {
             child->percent = 1.0 / children;
@@ -1181,7 +1219,7 @@ void con_disable_fullscreen(Con *con) {
     con_set_fullscreen_mode(con, CF_NONE);
 }
 
-static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
+static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
     Con *orig_target = target;
 
     /* Prevent moving if this would violate the fullscreen focus restrictions. */
@@ -1229,8 +1267,7 @@ static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fi
 
     /* 1: save the container which is going to be focused after the current
      * container is moved away */
-    Con *focus_next = NULL;
-    if (!ignore_focus && source_ws == current_ws && target_ws != source_ws) {
+    if (focus_next == NULL && !ignore_focus && source_ws == current_ws && target_ws != source_ws) {
         focus_next = con_descend_focused(source_ws);
         if (focus_next == con || con_has_parent(focus_next, con)) {
             focus_next = con_next_focused(con);
@@ -1365,17 +1402,8 @@ static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fi
     return true;
 }
 
-/*
- * Moves the given container to the given mark.
- *
- */
-bool con_move_to_mark(Con *con, const char *mark) {
-    Con *target = con_by_mark(mark);
-    if (target == NULL) {
-        DLOG("found no container with mark \"%s\"\n", mark);
-        return false;
-    }
-
+bool con_move_to_target(Con *con, Con *target) {
+    Con *focus_next = NULL;
     /* For target containers in the scratchpad, we just send the window to the scratchpad. */
     if (con_get_workspace(target) == workspace_get("__i3_scratch")) {
         DLOG("target container is in the scratchpad, moving container to scratchpad.\n");
@@ -1402,6 +1430,7 @@ bool con_move_to_mark(Con *con, const char *mark) {
     if (con_is_split(target)) {
         DLOG("target is a split container, descending to the currently focused child.\n");
         target = TAILQ_FIRST(&(target->focus_head));
+        focus_next = con_next_focused(con);
     }
 
     if (con == target || con_has_parent(target, con)) {
@@ -1409,7 +1438,21 @@ bool con_move_to_mark(Con *con, const char *mark) {
         return false;
     }
 
-    return _con_move_to_con(con, target, false, true, false, false, true);
+    return _con_move_to_con(con, target, focus_next, false, true, false, true, true);
+}
+
+/*
+ * Moves the given container to the given mark.
+ *
+ */
+bool con_move_to_mark(Con *con, const char *mark) {
+    Con *target = con_by_mark(mark);
+    if (target == NULL) {
+        DLOG("found no container with mark \"%s\"\n", mark);
+        return false;
+    }
+
+    return con_move_to_target(con, target);
 }
 
 /*
@@ -1442,7 +1485,8 @@ void con_move_to_workspace(Con *con, Con *workspace, bool fix_coordinates, bool 
     }
 
     Con *target = con_descend_focused(workspace);
-    _con_move_to_con(con, target, true, fix_coordinates, dont_warp, ignore_focus, true);
+    Con *focus_next = NULL;
+    _con_move_to_con(con, target, focus_next, true, fix_coordinates, dont_warp, ignore_focus, true);
 }
 
 /*
@@ -1880,9 +1924,9 @@ void con_set_layout(Con *con, layout_t layout) {
         /* In case last_split_layout was not initialized… */
         if (con->layout == L_DEFAULT)
             con->layout = L_SPLITH;
-    } else {
+    } else
         con->layout = layout;
-    }
+
     con_force_split_parents_redraw(con);
 }
 
@@ -2211,7 +2255,6 @@ void con_set_urgency(Con *con, bool urgent) {
     } else
         DLOG("Discarding urgency WM_HINT because timer is running\n");
 
-    //CLIENT_LOG(con);
     if (con->window) {
         if (con->urgent) {
             gettimeofday(&con->window->urgent, NULL);
