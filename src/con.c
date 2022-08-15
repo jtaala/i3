@@ -1219,7 +1219,7 @@ void con_disable_fullscreen(Con *con) {
     con_set_fullscreen_mode(con, CF_NONE);
 }
 
-static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
+static bool _con_move_to_con(Con *con, Con *target, bool behind_focused, bool fix_coordinates, bool dont_warp, bool ignore_focus, bool fix_percentage) {
     Con *orig_target = target;
 
     /* Prevent moving if this would violate the fullscreen focus restrictions. */
@@ -1267,7 +1267,8 @@ static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind
 
     /* 1: save the container which is going to be focused after the current
      * container is moved away */
-    if (focus_next == NULL && !ignore_focus && source_ws == current_ws && target_ws != source_ws) {
+    Con *focus_next = NULL;
+    if (!ignore_focus && source_ws == current_ws && target_ws != source_ws) {
         focus_next = con_descend_focused(source_ws);
         if (focus_next == con || con_has_parent(focus_next, con)) {
             focus_next = con_next_focused(con);
@@ -1403,7 +1404,6 @@ static bool _con_move_to_con(Con *con, Con *target, Con *focus_next, bool behind
 }
 
 bool con_move_to_target(Con *con, Con *target) {
-    Con *focus_next = NULL;
     /* For target containers in the scratchpad, we just send the window to the scratchpad. */
     if (con_get_workspace(target) == workspace_get("__i3_scratch")) {
         DLOG("target container is in the scratchpad, moving container to scratchpad.\n");
@@ -1430,7 +1430,6 @@ bool con_move_to_target(Con *con, Con *target) {
     if (con_is_split(target)) {
         DLOG("target is a split container, descending to the currently focused child.\n");
         target = TAILQ_FIRST(&(target->focus_head));
-        focus_next = con_next_focused(con);
     }
 
     if (con == target || con_has_parent(target, con)) {
@@ -1438,7 +1437,7 @@ bool con_move_to_target(Con *con, Con *target) {
         return false;
     }
 
-    return _con_move_to_con(con, target, focus_next, false, true, false, true, true);
+    return _con_move_to_con(con, target, false, true, false, false, true);
 }
 
 /*
@@ -1485,8 +1484,7 @@ void con_move_to_workspace(Con *con, Con *workspace, bool fix_coordinates, bool 
     }
 
     Con *target = con_descend_focused(workspace);
-    Con *focus_next = NULL;
-    _con_move_to_con(con, target, focus_next, true, fix_coordinates, dont_warp, ignore_focus, true);
+    _con_move_to_con(con, target, true, fix_coordinates, dont_warp, ignore_focus, true);
 }
 
 /*
