@@ -173,12 +173,6 @@ One use case where this may be preferable to i3's window indicator is that there
 
 _Note the reverse-layout markers needs the [right-to-left-layouts](https://github.com/i3/i3/compare/next...jtaala:right-to-left-layout-parent-layout-marker) branch._
 
-### [Send container to mark WITHOUT focusing](https://github.com/i3/i3/compare/next...jtaala:con_move_to_mark-focus_next)
-
-Part of my workflow involves sending windows to a [marked](https://i3wm.org/docs/userguide.html#vim_like_marks) container.  The default i3 behaviour is to maintain focus on the sent window after it has been moved to the marked container - this breaks my workflow.
-
-This feature changes the behaviour to send the window to the marked container WITHOUT maintaining focus.
-
 ## About i3
 i3 is a tiling window manager for X11.
 
