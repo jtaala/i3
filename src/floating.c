@@ -253,7 +253,7 @@ bool floating_enable(Con *con, bool automatic) {
         }
         /* Consider the part of the focus stack of our current workspace:
          * [ ... S_{i-1} S_{i} S_{i+1} ... ]
-         * Where S_{x} is a container tree and the container 'con' that is beeing switched to
+         * Where S_{x} is a container tree and the container 'con' that is being switched to
          * floating belongs in S_{i}. The new floating container, 'nc', will have the
          * workspace as its parent so it needs to be placed in this stack. If C was focused
          * we just need to call con_focus(). Otherwise, nc must be placed before or after S_{i}.
@@ -446,7 +446,10 @@ void floating_disable(Con *con) {
         con->percent = 0.0;
         con_fix_percent(con->parent);
     } else {
-        insert_con_into(con, tiling_focused, AFTER);
+        insert_con_into(con, tiling_focused,
+                        (tiling_focused->parent->layout_fill_order == LF_DEFAULT)
+                            ? AFTER
+                            : BEFORE);
     }
 
     con->floating = FLOATING_USER_OFF;

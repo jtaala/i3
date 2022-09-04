@@ -110,6 +110,7 @@ struct Config {
     char *restart_state_path;
 
     layout_t default_layout;
+    layout_fill_t default_layout_fill_order;
     int container_stack_limit;
     int container_stack_limit_value;
     int default_border_width;
@@ -238,9 +239,11 @@ struct Config {
         color_t background;
         struct Colortriple focused;
         struct Colortriple focused_inactive;
+        struct Colortriple focused_tab_title;
         struct Colortriple unfocused;
         struct Colortriple urgent;
         struct Colortriple placeholder;
+        bool got_focused_tab_title;
     } client;
     struct config_bar {
         struct Colortriple focused;

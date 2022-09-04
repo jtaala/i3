@@ -255,7 +255,7 @@ CFGFUN(default_orientation, const char *orientation) {
         config.default_orientation = NO_ORIENTATION;
 }
 
-CFGFUN(workspace_layout, const char *layout) {
+CFGFUN(workspace_layout, const char *layout, const char *fill_order) {
     if (strcmp(layout, "default") == 0)
         config.default_layout = L_DEFAULT;
     else if (strcmp(layout, "stacking") == 0 ||
@@ -263,6 +263,12 @@ CFGFUN(workspace_layout, const char *layout) {
         config.default_layout = L_STACKED;
     else
         config.default_layout = L_TABBED;
+
+    if (fill_order != NULL && strcmp(fill_order, "reverse") == 0) {
+        config.default_layout_fill_order = LF_REVERSE;
+    } else {
+        config.default_layout_fill_order = LF_DEFAULT;
+    }
 }
 
 CFGFUN(default_border, const char *windowtype, const char *border, const long width) {
@@ -467,24 +473,32 @@ CFGFUN(color_single, const char *colorclass, const char *color) {
 }
 
 CFGFUN(color, const char *colorclass, const char *border, const char *background, const char *text, const char *indicator, const char *child_border) {
-#define APPLY_COLORS(classname)                                                              \
-    do {                                                                                     \
-        if (strcmp(colorclass, "client." #classname) == 0) {                                 \
-            config.client.classname.border = draw_util_hex_to_color(border);                 \
-            config.client.classname.background = draw_util_hex_to_color(background);         \
-            config.client.classname.text = draw_util_hex_to_color(text);                     \
-            if (indicator != NULL) {                                                         \
-                config.client.classname.indicator = draw_util_hex_to_color(indicator);       \
-            }                                                                                \
-            if (child_border != NULL) {                                                      \
-                config.client.classname.child_border = draw_util_hex_to_color(child_border); \
-            } else {                                                                         \
-                config.client.classname.child_border = config.client.classname.background;   \
-            }                                                                                \
-        }                                                                                    \
+#define APPLY_COLORS(classname)                                                                              \
+    do {                                                                                                     \
+        if (strcmp(colorclass, "client." #classname) == 0) {                                                 \
+            if (strcmp("focused_tab_title", #classname) == 0) {                                              \
+                config.client.got_focused_tab_title = true;                                                  \
+                if (indicator || child_border) {                                                             \
+                    ELOG("indicator and child_border colors have no effect for client.focused_tab_title\n"); \
+                }                                                                                            \
+            }                                                                                                \
+            config.client.classname.border = draw_util_hex_to_color(border);                                 \
+            config.client.classname.background = draw_util_hex_to_color(background);                         \
+            config.client.classname.text = draw_util_hex_to_color(text);                                     \
+            if (indicator != NULL) {                                                                         \
+                config.client.classname.indicator = draw_util_hex_to_color(indicator);                       \
+            }                                                                                                \
+            if (child_border != NULL) {                                                                      \
+                config.client.classname.child_border = draw_util_hex_to_color(child_border);                 \
+            } else {                                                                                         \
+                config.client.classname.child_border = config.client.classname.background;                   \
+            }                                                                                                \
+            return;                                                                                          \
+        }                                                                                                    \
     } while (0)
 
     APPLY_COLORS(focused_inactive);
+    APPLY_COLORS(focused_tab_title);
     APPLY_COLORS(focused);
     APPLY_COLORS(unfocused);
     APPLY_COLORS(urgent);

@@ -228,10 +228,19 @@ static void move_to_output_directed(Con *con, direction_t direction) {
          * the focused container, con, is now a child of ws. To work around this
          * and still produce the correct workspace focus events (see
          * 517-regress-move-direction-ipc.t) we need to temporarily set focused
-         * to the old workspace. */
+         * to the old workspace.
+         *
+         * The following happen:
+         * 1. Focus con to push it on the top of the focus stack in its new
+         * workspace
+         * 2. Set focused to the old workspace to force workspace_show to
+         * execute
+         * 3. workspace_show will descend focus and target our con for
+         * focusing. This also ensures that the mouse warps correctly.
+         * See: #3518. */
+        con_focus(con);
         focused = old_ws;
         workspace_show(ws);
-        con_focus(con);
     }
 
     /* force re-painting the indicators */
@@ -240,6 +249,24 @@ static void move_to_output_directed(Con *con, direction_t direction) {
     ipc_send_window_event("move", con);
     tree_flatten(croot);
     ewmh_update_wm_desktop();
+}
+
+/*
+ * Figures out how to insert a con into a another con in relation to the
+ * targetted child node based on the target layout fill order and direction from
+ * which it will be inserted.
+ *
+ */
+static position_t tree_insert_position_from_direction(Con *target, direction_t direction) {
+    orientation_t o = orientation_from_direction(direction);
+    orientation_t target_orientation = con_orientation(target->parent);
+
+    if ((target_orientation == o && (direction == D_LEFT || direction == D_UP)) ||
+        (target_orientation != o && target->parent->layout_fill_order == LF_DEFAULT)) {
+        return AFTER;
+    } else {
+        return BEFORE;
+    }
 }
 
 /*
@@ -305,11 +332,7 @@ void tree_move(Con *con, direction_t direction) {
                 if (!con_is_leaf(swap)) {
                     DLOG("Moving into our bordering branch\n");
                     target = con_descend_direction(swap, direction);
-                    position = (con_orientation(target->parent) != o ||
-                                        direction == D_UP ||
-                                        direction == D_LEFT
-                                    ? AFTER
-                                    : BEFORE);
+                    position = tree_insert_position_from_direction(target, direction);
                     insert_con_into(con, target, position);
                     goto end;
                 }
@@ -320,6 +343,9 @@ void tree_move(Con *con, direction_t direction) {
                 } else {
                     TAILQ_SWAP(con, swap, &(swap->parent->nodes_head), nodes);
                 }
+
+                /* redraw parents to ensure all parent split container titles are updated correctly */
+                con_force_split_parents_redraw(con);
 
                 ipc_send_window_event("move", con);
                 return;
@@ -358,11 +384,7 @@ void tree_move(Con *con, direction_t direction) {
     if (next && !con_is_leaf(next)) {
         DLOG("Moving into the bordering branch of our adjacent container\n");
         target = con_descend_direction(next, direction);
-        position = (con_orientation(target->parent) != o ||
-                            direction == D_UP ||
-                            direction == D_LEFT
-                        ? AFTER
-                        : BEFORE);
+        position = tree_insert_position_from_direction(target, direction);
         insert_con_into(con, target, position);
     } else if (!next &&
                con->parent->parent->type == CT_WORKSPACE &&
