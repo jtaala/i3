@@ -2321,7 +2321,7 @@ char *con_get_tree_representation(Con *con) {
     }
 
     char *complete_buf = sstrdup("");
-    sasprintf(&complete_buf, "{%s }", buf);
+    sasprintf(&complete_buf, "%s ", buf);
     FREE(buf);
 
     return complete_buf;
