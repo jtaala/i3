@@ -42,12 +42,77 @@ Con *get_existing_workspace_by_name(const char *name) {
  *
  */
 Con *get_existing_workspace_by_num(int num) {
-    Con *output, *workspace = NULL;
+    Con *current = con_get_workspace(focused);
+    Con *output, *first = NULL, *last_select = NULL, *after_current = NULL;
+    bool prev_was_current = false;
     TAILQ_FOREACH (output, &(croot->nodes_head), nodes) {
-        GREP_FIRST(workspace, output_get_content(output), child->num == num);
+        /*
+         * iterate through workspaces and get first (as fallback) - otherwise return
+         * the workspace right after the current workspace (or the same num).
+         */
+        NODES_FOREACH (output_get_content(output)) {
+            if (child->num != num) {
+                continue;
+            }
+            // select first (will be fallback)
+            if (!first) {
+                first = child;
+            }
+
+            if (child->num_last_selected) {
+                last_select = child;
+            }
+
+            // if current equals the child, go to next
+            if (current == child) {
+                prev_was_current = true;
+                continue;
+            }
+            // return the next after prev
+            if (prev_was_current) {
+                after_current = child;
+                prev_was_current = false;
+            }
+        }
     }
 
-    return workspace;
+    clear_num_last_selected_by_num(num);
+
+    // selection logic
+    // if last selected is current -> then check for after_current
+    if (last_select && last_select != current) {
+        last_select->num_last_selected = true;
+        return last_select;
+    }
+
+    // if after_current exists, return that
+    if (after_current) {
+        after_current->num_last_selected = true;
+        return after_current;
+    }
+
+    // fallback is return first
+    if (first) {
+        first->num_last_selected = true;
+    }
+    return first;
+}
+
+/**
+ * Clears the num_last_selected property of all workspaces by workspace number.
+ * (there can be multiple: 1a, 1b, etc.).
+ */
+void clear_num_last_selected_by_num(int num) {
+    Con *output;
+    TAILQ_FOREACH (output, &(croot->nodes_head), nodes) {
+        // reset num_last_selected
+        NODES_FOREACH (output_get_content(output)) {
+            if (child->num != num) {
+                continue;
+            }
+            child->num_last_selected = false;
+        }
+    }
 }
 
 /*
@@ -590,6 +655,7 @@ Con *workspace_next(void) {
         }
     } else {
         /* If currently a numbered workspace, find next numbered workspace. */
+        bool found_current = false;
         TAILQ_FOREACH (output, &(croot->nodes_head), nodes) {
             /* Skip outputs starting with __, they are internal. */
             if (con_is_internal(output))
@@ -608,13 +674,28 @@ Con *workspace_next(void) {
                  * relative order between the list of workspaces. */
                 if (current->num < child->num && (!next || child->num < next->num))
                     next = child;
+
+                /* If two workspaces have the same number, but different names
+                 * (eg '5:a', '5:b') then just take the next one. */
+                if (child == current) {
+                    found_current = true;
+                } else if (found_current && current->num == child->num) {
+                    clear_num_last_selected_by_num(child->num);
+                    child->num_last_selected = true;
+                    return child;
+                }
             }
         }
     }
 
-    if (!next)
+    if (!next) {
         next = first_opposite ? first_opposite : first;
+    }
 
+    if (next) {
+        clear_num_last_selected_by_num(next->num);
+        next->num_last_selected = true;
+    }
     return next;
 }
 
@@ -656,6 +737,7 @@ Con *workspace_prev(void) {
         }
     } else {
         /* If numbered workspace, find previous numbered workspace. */
+        bool found_current = false;
         TAILQ_FOREACH_REVERSE (output, &(croot->nodes_head), nodes_head, nodes) {
             /* Skip outputs starting with __, they are internal. */
             if (con_is_internal(output))
@@ -674,13 +756,28 @@ Con *workspace_prev(void) {
                  * the relative order between the list of workspaces. */
                 if (current->num > child->num && (!prev || child->num > prev->num))
                     prev = child;
+
+                /* If two workspaces have the same number, but different names
+                 * (eg '5:a', '5:b') then just take the previous one. */
+                if (child == current) {
+                    found_current = true;
+                } else if (found_current && current->num == child->num) {
+                    clear_num_last_selected_by_num(child->num);
+                    child->num_last_selected = true;
+                    return child;
+                }
             }
         }
     }
 
-    if (!prev)
+    if (!prev) {
         prev = first_opposite ? first_opposite : last;
+    }
 
+    if (prev) {
+        clear_num_last_selected_by_num(prev->num);
+        prev->num_last_selected = true;
+    }
     return prev;
 }
 
@@ -698,6 +795,7 @@ Con *workspace_next_on_output(void) {
         next = TAILQ_NEXT(current, nodes);
     } else {
         /* If currently a numbered workspace, find next numbered workspace. */
+        bool found_current = false;
         NODES_FOREACH (output_get_content(output)) {
             if (child->type != CT_WORKSPACE)
                 continue;
@@ -708,6 +806,14 @@ Con *workspace_next_on_output(void) {
              * relative order between the list of workspaces. */
             if (current->num < child->num && (!next || child->num < next->num))
                 next = child;
+
+            /* If two workspaces have the same number, but different names
+             * (eg '5:a', '5:b') then just take the next one. */
+            if (child == current) {
+                found_current = true;
+            } else if (found_current && current->num == child->num) {
+                return child;
+            }
         }
     }
 
@@ -756,6 +862,7 @@ Con *workspace_prev_on_output(void) {
             prev = NULL;
     } else {
         /* If numbered workspace, find previous numbered workspace. */
+        bool found_current = false;
         NODES_FOREACH_REVERSE (output_get_content(output)) {
             if (child->type != CT_WORKSPACE || child->num == -1)
                 continue;
@@ -764,6 +871,14 @@ Con *workspace_prev_on_output(void) {
              * the relative order between the list of workspaces. */
             if (current->num > child->num && (!prev || child->num > prev->num))
                 prev = child;
+
+            /* If two workspaces have the same number, but different names
+             * (eg '5:a', '5:b') then just take the previous one. */
+            if (child == current) {
+                found_current = true;
+            } else if (found_current && current->num == child->num) {
+                return child;
+            }
         }
     }
 
