@@ -61,9 +61,11 @@ typedef enum { NO_ORIENTATION = 0,
                VERT } orientation_t;
 typedef enum { BEFORE,
                AFTER } position_t;
-typedef enum { BS_NORMAL = 0,
-               BS_NONE = 1,
-               BS_PIXEL = 2 } border_style_t;
+typedef enum {
+    BS_NONE = 0,
+    BS_PIXEL = 1,
+    BS_NORMAL = 2,
+} border_style_t;
 
 /** parameter to specify whether tree_close_internal() and x_window_kill() should kill
  * only this specific window or the whole X11 client */
@@ -743,6 +745,13 @@ struct Con {
     layout_fill_t layout_fill_order;
 
     border_style_t border_style;
+    /* When the border style of a con changes because of motif hints, we don't
+     * want to set more decoration that the user wants. The user's preference is determined by these:
+     * 1. For new tiling windows, as set by `default_border`
+     * 2. For new floating windows, as set by `default_floating_border`
+     * 3. For all windows that the user runs the `border` command, whatever is
+     * the result of that command for that window. */
+    border_style_t max_user_border_style;
 
     /** floating? (= not in tiling layout) This cannot be simply a bool
      * because we want to keep track of whether the status was set by the
