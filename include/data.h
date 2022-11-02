@@ -47,6 +47,7 @@ typedef struct Con Con;
 typedef struct Match Match;
 typedef struct Assignment Assignment;
 typedef struct Window i3Window;
+typedef struct gaps_t gaps_t;
 typedef struct mark_t mark_t;
 
 /******************************************************************************
@@ -80,11 +81,20 @@ typedef enum { ADJ_NONE = 0,
                ADJ_UPPER_SCREEN_EDGE = (1 << 2),
                ADJ_LOWER_SCREEN_EDGE = (1 << 4) } adjacent_t;
 
+typedef enum { SMART_BORDERS_OFF,
+               SMART_BORDERS_ON,
+               SMART_BORDERS_NO_GAPS } smart_borders_t;
+
+typedef enum { SMART_GAPS_OFF,
+               SMART_GAPS_ON,
+               SMART_GAPS_INVERSE_OUTER } smart_gaps_t;
+
 typedef enum { HEBM_NONE = ADJ_NONE,
                HEBM_VERTICAL = ADJ_LEFT_SCREEN_EDGE | ADJ_RIGHT_SCREEN_EDGE,
                HEBM_HORIZONTAL = ADJ_UPPER_SCREEN_EDGE | ADJ_LOWER_SCREEN_EDGE,
                HEBM_BOTH = HEBM_VERTICAL | HEBM_HORIZONTAL,
-               HEBM_SMART = (1 << 5) } hide_edge_borders_mode_t;
+               HEBM_SMART = (1 << 5),
+               HEBM_SMART_NO_GAPS = (1 << 6) } hide_edge_borders_mode_t;
 
 typedef enum { MM_REPLACE,
                MM_ADD } mark_mode_t;
@@ -144,6 +154,14 @@ typedef enum {
     POINTER_WARPING_OUTPUT = 0,
     POINTER_WARPING_NONE = 1
 } warping_t;
+
+struct gaps_t {
+    int inner;
+    int top;
+    int right;
+    int bottom;
+    int left;
+};
 
 /**
  * Focus wrapping modes.
@@ -213,12 +231,13 @@ struct deco_render_params {
 };
 
 /**
- * Stores which workspace (by name or number) goes to which output.
+ * Stores which workspace (by name or number) goes to which output and its gaps config.
  *
  */
 struct Workspace_Assignment {
     char *name;
     char *output;
+    gaps_t gaps;
 
     TAILQ_ENTRY(Workspace_Assignment) ws_assignments;
 };
@@ -659,6 +678,9 @@ struct Con {
      * have multiple workspaces with the same num (e.g. 1a, 1b, 1c).
      */
     bool num_last_selected;
+
+    /** Only applicable for containers of type CT_WORKSPACE. */
+    gaps_t gaps;
 
     struct Con *parent;
 

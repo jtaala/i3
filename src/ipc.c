@@ -245,6 +245,28 @@ static void dump_rect(yajl_gen gen, const char *name, Rect r) {
     y(map_close);
 }
 
+static void dump_gaps(yajl_gen gen, const char *name, gaps_t gaps) {
+    ystr(name);
+    y(map_open);
+    ystr("inner");
+    y(integer, gaps.inner);
+
+    // TODO: the i3ipc Python modules recognize gaps, but only inner/outer
+    // This is currently here to preserve compatibility with that
+    ystr("outer");
+    y(integer, gaps.top);
+
+    ystr("top");
+    y(integer, gaps.top);
+    ystr("right");
+    y(integer, gaps.right);
+    ystr("bottom");
+    y(integer, gaps.bottom);
+    ystr("left");
+    y(integer, gaps.left);
+    y(map_close);
+}
+
 static void dump_event_state_mask(yajl_gen gen, Binding *bind) {
     y(array_open);
     for (int i = 0; i < 20; i++) {
@@ -514,6 +536,8 @@ void dump_node(yajl_gen gen, struct Con *con, bool inplace_restart) {
     if (con->type == CT_WORKSPACE) {
         ystr("num");
         y(integer, con->num);
+
+        dump_gaps(gen, "gaps", con->gaps);
     }
 
     ystr("window");
@@ -806,6 +830,13 @@ static void dump_bar_config(yajl_gen gen, Barconfig *config) {
 
     YSTR_IF_SET(status_command);
     YSTR_IF_SET(font);
+
+    if (config->bar_height) {
+        ystr("bar_height");
+        y(integer, config->bar_height);
+    }
+
+    dump_rect(gen, "padding", config->padding);
 
     if (config->separator_symbol) {
         ystr("separator_symbol");
