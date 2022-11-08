@@ -786,19 +786,45 @@ default_border pixel 3
 === Hiding borders adjacent to the screen edges
 
 You can hide container borders adjacent to the screen edges using
-+hide_edge_borders+. This is useful if you are using scrollbars, or do not want
-to waste even two pixels in displayspace. The "smart" setting hides borders on
-workspaces with only one window visible, but keeps them on workspaces with
-multiple windows visible. Default is none.
++hide_edge_borders+ (the default is +none+). Hiding borders is useful if you are
+using scrollbars, or do not want to waste even two pixels in displayspace.
+
+The "smart" setting hides borders on workspaces with only one window visible,
+but keeps them on workspaces with multiple windows visible.
+
+The "smart_no_gaps" setting hides edge-specific borders of a container if the
+container is the only container on its workspace and the gaps to the screen edge
+are +0+.
 
 *Syntax*:
 -----------------------------------------------
-hide_edge_borders none|vertical|horizontal|both|smart
+hide_edge_borders none|vertical|horizontal|both|smart|smart_no_gaps
 -----------------------------------------------
 
 *Example*:
 ----------------------
 hide_edge_borders vertical
+----------------------
+
+[[_smart_borders]]
+=== Smart borders
+
+Smart borders will draw borders on windows only if there is more than one window
+in a workspace. This feature can also be enabled only if the gap size between
+window and screen edge is +0+.
+
+*Syntax*:
+-----------------------------------------------
+smart_borders on|off|no_gaps
+-----------------------------------------------
+
+*Example*:
+----------------------
+# Activate smart borders (always)
+smart_borders on
+
+# Activate smart borders (only when there are effectively no gaps)
+smart_borders no_gaps
 ----------------------
 
 [[for_window]]
@@ -1126,7 +1152,8 @@ client.background::
         which do not cover the whole area of this window expose the color. Note
         that this colorclass only takes a single color.
 
-Colors are in HTML hex format (#rrggbb), see the following example:
+Colors are in HTML hex format (#rrggbb, optionally #rrggbbaa), see the following
+example:
 
 *Examples (default colors)*:
 ----------------------------------------------------------------------
@@ -1457,8 +1484,7 @@ between a screen edge and a window (or split container) will be the sum of outer
 and inner gaps.
 
 You can define gaps either globally or per workspace using the following
-syntax. Note that the gaps configurations should be ordered from least specific
-to most specific as some directives can overwrite others.
+syntax.
 
 *Syntax*:
 -----------------------
@@ -1508,23 +1534,6 @@ Tip: Gaps can additionally be changed at runtime with the `gaps` command, see
 Tip: You can find an
 https://github.com/Airblader/i3/wiki/Example-Configuration[example
 configuration] that uses modes to illustrate various gap configurations.
-
-[[gaps_artifacts]]
-==== ⚠ Known issue with gaps: graphical artifacts (black rectangles)
-
-The way i3 renders window title bars results in graphical artifacts (black
-rectangles behind windows) when enabling gaps. In some circumstances, running a
-compositor such as `picom` works around the artifacts.
-
-Another workaround is to disable window title bars entirely:
-
-------------------------
-# You can also use any non-zero value if you'd like to have a border
-default_border pixel 0
-------------------------
-
-See https://github.com/i3/i3/issues/3724[Issue #3724] for more details and
-updates on this issue.
 
 == Configuring i3bar
 
@@ -1995,8 +2004,8 @@ bar {
 
 === Colors
 
-As with i3, colors are in HTML hex format (#rrggbb). The following colors can
-be configured at the moment:
+As with i3, colors are in HTML hex format (#rrggbb, optionally #rrggbbaa). The
+following colors can be configured at the moment:
 
 background::
 	Background color of the bar.
