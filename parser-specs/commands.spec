@@ -57,12 +57,30 @@ state CRITERIA:
   ctype = 'urgent'      -> CRITERION
   ctype = 'workspace'   -> CRITERION
   ctype = 'machine'     -> CRITERION
+  ctype = 'floating_from' -> CRITERION_FROM
+  ctype = 'tiling_from'   -> CRITERION_FROM
   ctype = 'tiling', 'floating', 'all'
       -> call cmd_criteria_add($ctype, NULL); CRITERIA
   ']' -> call cmd_criteria_match_windows(); INITIAL
 
 state CRITERION:
   '=' -> CRITERION_STR
+
+state CRITERION_FROM:
+  '=' -> CRITERION_FROM_STR_START
+
+state CRITERION_FROM_STR_START:
+  '"' -> CRITERION_FROM_STR
+  kind = 'auto', 'user'
+    -> call cmd_criteria_add($ctype, $kind); CRITERIA
+
+state CRITERION_FROM_STR:
+  kind = 'auto', 'user'
+    -> CRITERION_FROM_STR_END
+
+state CRITERION_FROM_STR_END:
+  '"'
+    -> call cmd_criteria_add($ctype, $kind); CRITERIA
 
 state CRITERION_STR:
   cvalue = word
@@ -96,6 +114,12 @@ state BORDER:
   '1pixel'
     -> call cmd_border("pixel", 1)
 
+state BORDER_WIDTH:
+  end
+    -> call cmd_border($border_style, -1)
+  border_width = number
+    -> call cmd_border($border_style, &border_width)
+
 # gaps inner|outer|horizontal|vertical|top|right|bottom|left [current] [set|plus|minus|toggle] <px>
 state GAPS:
   type = 'inner', 'outer', 'horizontal', 'vertical', 'top', 'right', 'bottom', 'left'
@@ -119,6 +143,7 @@ state GAPS_END:
   end
       -> call cmd_gaps($type, $scope, $mode, $value)
 
+<<<<<<< HEAD
 state BORDER_WIDTH:
   end
     -> call cmd_border($border_style, -1)
